@@ -1,0 +1,10 @@
+[package]
+name = "bevy_piet_render"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = {version ="0.9", default-features = false }
+piet-gpu-wgsl = { git = "https://github.com/linebender/piet-gpu.git", rev = "0e22025"}

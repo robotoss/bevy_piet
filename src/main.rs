@@ -1,3 +1,1 @@
-fn main() {
-    println!("Hello, world!");
-}
+pub use bevy_piet_core::*;
