@@ -1,3 +1,5 @@
+use bevy::prelude::{App, Plugin};
+
 /// Contains the Bevy interface to the Piet renderer.
 #[derive(Default)]
 pub struct PietRenderPlugin;

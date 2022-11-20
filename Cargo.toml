@@ -7,3 +7,15 @@ edition = "2021"
 
 [dependencies]
 bevy_piet_render = { path = "bevy_piet_render" }
+
+[dev-dependencies]
+bevy = {version ="0.9" }
+
+[[example]]
+name = "render"
+path = "example/render_to_png.rs"
+
+[package.metadata.example.text2d]
+name = "Render to Png"
+description = "Generete Png file with render"
+category = "2D Rendering"
