@@ -10,15 +10,19 @@ pub async fn do_render(
     queue: &Queue,
     engine: &mut Engine,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Device {:?}", device);
+    println!("DEBUG: Do Render Step 1");
 
     #[allow(unused)]
     let shaders = init_shaders(device, engine)?;
+    println!("DEBUG: Do Render Step 2");
     let full_shaders = full_shaders(device, engine)?;
+    println!("DEBUG: Do Render Step 3");
     let scene = gen_test_scene();
+    println!("DEBUG: Do Render Step 4");
     //test_scene::dump_scene_info(&scene);
     //let (recording, buf) = render::render(&scene, &shaders);
     let (recording, buf) = render_full(&scene, &full_shaders);
+    println!("DEBUG: Do Render Step 5");
     let downloads = engine.run_recording(&device, &queue, &recording)?;
     let mapped = downloads.map();
     device.poll(wgpu::Maintain::Wait);
