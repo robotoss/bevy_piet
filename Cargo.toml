@@ -10,6 +10,7 @@ bevy_piet_render = { path = "bevy_piet_render" }
 
 [dev-dependencies]
 bevy = {version ="0.9" }
+pollster = "0.2.5"
 
 [[example]]
 name = "render"
