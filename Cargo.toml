@@ -21,7 +21,16 @@ pollster = "0.2.5"
 name = "render"
 path = "example/render_to_png.rs"
 
-[package.metadata.example.text2d]
+[package.metadata.example.button_ui]
 name = "Render to Png"
 description = "Generete Png file with render"
 category = "2D Rendering"
+
+[[example]]
+name = "compute_shader"
+path = "example/compute_shader_piet.rs"
+
+[package.metadata.example.compute_shader_piet]
+name = "Compute Shaders - Piet"
+description = "Custom piet compute"
+category = "Shaders"

@@ -12,7 +12,7 @@ pub struct PietRenderResources {
 pub struct PietRenderPlugin;
 
 impl Plugin for PietRenderPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         let mut render_app = App::empty();
         let engine = Engine::new();
         render_app.insert_resource(PietRenderResources { engine });
