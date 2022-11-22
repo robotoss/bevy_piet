@@ -1,6 +1,5 @@
-use bevy::{prelude::{App, Plugin, Resource}};
+use bevy::{prelude::{App, Plugin, Resource}, render::renderer::{RenderDevice, RenderQueue}};
 use piet_wgsl::prelude::Engine;
-use wgpu::Limits;
 mod render;
 
 #[derive(Resource,)]
@@ -21,28 +20,13 @@ impl Plugin for PietRenderPlugin {
 }
 
 pub async fn run_render(
-    // device: &RenderDevice,
-    // queue: &RenderQueue,
+    device: &RenderDevice,
+    queue: &RenderQueue,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
-    let adapter = instance.request_adapter(&Default::default()).await.unwrap();
-    let features = adapter.features();
-    let mut limits = Limits::default();
-    limits.max_storage_buffers_per_shader_stage = 16;
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: features & wgpu::Features::TIMESTAMP_QUERY,
-                limits,
-            },
-            None,
-        )
-        .await?;
-
+    
 
     let mut engine = Engine::new();
-    render::do_render(&device, &queue, &mut engine).await?;
+    render::do_render(&device.wgpu_device(), &queue, &mut engine).await?;
 
     Ok(())
 }

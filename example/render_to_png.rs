@@ -1,5 +1,6 @@
 use bevy::{
     prelude::*,
+    render::renderer::{RenderDevice, RenderQueue},
     // render::renderer::{RenderAdapter, RenderDevice, RenderQueue},
     winit::WinitSettings,
 };
@@ -26,9 +27,8 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
-    // render_device: Res<RenderDevice>,
-    // render_queue: Res<RenderQueue>,
-    // render_adapter: Res<RenderAdapter>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
 ) {
     for (interaction, mut color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
@@ -37,11 +37,8 @@ fn button_system(
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
 
-                // println!("Device {:?}", render_device.wgpu_device());
-
-                // pollster::block_on(do_render(&render_device, &render_queue)).expect("Error Render")
-
-                pollster::block_on(run_render()).expect("Error Render")
+                pollster::block_on(run_render(&render_device, &render_queue))
+                    .expect("Error Render");
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
