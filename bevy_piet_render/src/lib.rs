@@ -1,10 +1,10 @@
-use bevy::{prelude::{App, Plugin, Resource}, render::renderer::{RenderDevice, RenderQueue}};
-use piet_wgsl::prelude::Engine;
+use bevy::{prelude::{App, Plugin, Resource}, render::renderer::RenderDevice};
+use piet_wgsl::Renderer;
 mod render;
 
 #[derive(Resource,)]
 pub struct PietRenderResources {
-    pub engine: Engine,
+    pub render: Renderer,
 }
 
 /// Contains the Bevy interface to the Piet renderer.
@@ -12,21 +12,18 @@ pub struct PietRenderResources {
 pub struct PietRenderPlugin;
 
 impl Plugin for PietRenderPlugin {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
         let mut render_app = App::empty();
-        let engine = Engine::new();
-        render_app.insert_resource(PietRenderResources { engine });
+       let render_device = app.world.resource::<RenderDevice>().clone();
+
+        let render = Renderer::new(render_device.wgpu_device()).expect("Can't create new Renderer");
+
+        render_app.insert_resource(PietRenderResources { render });
     }
 }
 
 pub async fn run_render(
-    device: &RenderDevice,
-    queue: &RenderQueue,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    
-
-    let mut engine = Engine::new();
-    render::do_render(&device.wgpu_device(), &queue, &mut engine).await?;
 
     Ok(())
 }
