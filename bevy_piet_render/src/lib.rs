@@ -29,8 +29,8 @@ impl Plugin for PietRenderPlugin {
 }
 
 pub fn run_render(
-    device: &Device,
     mut render: Renderer,
+    device: &Device,
     queue: &Queue,
     texture: &TextureView,
     width: u32,

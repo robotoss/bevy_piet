@@ -10,10 +10,11 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::*,
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         RenderApp, RenderStage,
     },
 };
+use bevy_piet_render::{run_render, PietRenderResources};
 use std::borrow::Cow;
 
 const SIZE: (u32, u32) = (1280, 720);
@@ -98,6 +99,8 @@ fn queue_bind_group(
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    piet_render: Res<PietRenderResources>,
 ) {
     let view = &gpu_images[&game_of_life_image.0];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -108,6 +111,16 @@ fn queue_bind_group(
             resource: BindingResource::TextureView(&view.texture_view),
         }],
     });
+
+    run_render(
+        piet_render.render,
+        render_device.wgpu_device(),
+        &render_queue.0,
+        texture,
+        SIZE.0,
+        SIZE.1,
+    );
+
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
 }
 
