@@ -29,17 +29,18 @@ impl Plugin for PietRenderPlugin {
 }
 
 pub fn run_render(
-    mut render: Renderer,
     device: &Device,
     queue: &Queue,
     texture: &TextureView,
     width: u32,
     height: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let mut render = Renderer::new(device).expect("Can't create new Renderer");
+
     let mut scene = Scene::default();
 
     let mut builder = SceneBuilder::for_scene(&mut scene);
-    test_scene::render_funky_paths(&mut builder);
+    test_scene::render_blend_grid(&mut builder);
     builder.finish();
 
     render
