@@ -2,8 +2,8 @@ use bevy::{
     prelude::{App, Plugin, Resource},
     render::renderer::RenderDevice,
 };
-use piet_scene::{Scene, SceneBuilder};
-use piet_wgsl::Renderer;
+
+use vello::{Renderer, Scene, SceneBuilder};
 use wgpu::{Device, Queue, TextureView};
 mod render;
 mod test_scene;
