@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 bevy = {version ="0.9", default-features = false }
-piet-wgsl = { git = "https://github.com/robotoss/piet-gpu.git"}
+piet-wgsl = { git = "https://github.com/linebender/piet-gpu.git", rev= "571822248c92a5e57761ef29391638c5ff942cd7"}
+piet-scene = { git = "https://github.com/linebender/piet-gpu.git", rev= "571822248c92a5e57761ef29391638c5ff942cd7"}
 wgpu = "0.14"
 png = "0.17.6"
 bytemuck = { version = "1.12.1", features = ["derive"] }

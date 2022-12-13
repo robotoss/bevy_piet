@@ -1,10 +1,16 @@
-use bevy::{prelude::{App, Plugin, Resource}, render::renderer::{RenderDevice, RenderQueue}};
-use piet_wgsl::prelude::Engine;
+use bevy::{
+    prelude::{App, Plugin, Resource},
+    render::renderer::RenderDevice,
+};
+use piet_scene::{Scene, SceneBuilder};
+use piet_wgsl::Renderer;
+use wgpu::{Device, Queue, TextureView};
 mod render;
+mod test_scene;
 
-#[derive(Resource,)]
+#[derive(Resource)]
 pub struct PietRenderResources {
-    pub engine: Engine,
+    pub render: Renderer,
 }
 
 /// Contains the Bevy interface to the Piet renderer.
@@ -12,21 +18,34 @@ pub struct PietRenderResources {
 pub struct PietRenderPlugin;
 
 impl Plugin for PietRenderPlugin {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
         let mut render_app = App::empty();
-        let engine = Engine::new();
-        render_app.insert_resource(PietRenderResources { engine });
+        let render_device = app.world.resource::<RenderDevice>().clone();
+
+        let render = Renderer::new(render_device.wgpu_device()).expect("Can't create new Renderer");
+
+        render_app.insert_resource(PietRenderResources { render });
     }
 }
 
-pub async fn run_render(
-    device: &RenderDevice,
-    queue: &RenderQueue,
+pub fn run_render(
+    device: &Device,
+    queue: &Queue,
+    texture: &TextureView,
+    width: u32,
+    height: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    
+    let mut render = Renderer::new(device).expect("Can't create new Renderer");
 
-    let mut engine = Engine::new();
-    render::do_render(&device.wgpu_device(), &queue, &mut engine).await?;
+    let mut scene = Scene::default();
+
+    let mut builder = SceneBuilder::for_scene(&mut scene);
+    test_scene::render_blend_grid(&mut builder);
+    builder.finish();
+
+    render
+        .render_to_texture(device, queue, &scene, texture, width, height)
+        .expect("failed to render to texture");
 
     Ok(())
 }
