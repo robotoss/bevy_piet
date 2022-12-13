@@ -1,12 +1,12 @@
 [package]
-name = "bevy_piet"
+name = "bevy_vello"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy_piet_render = { path = "bevy_piet_render" }
+bevy_vello_render = { path = "bevy_vello_render" }
 
 [patch.crates-io]
 # Required for metal support to work on wgpu
@@ -17,14 +17,6 @@ naga = { git = "https://github.com/gfx-rs/naga", rev="ddcd5d3121150b2b1beee6e54e
 bevy = {version ="0.9" }
 pollster = "0.2.5"
 
-[[example]]
-name = "render"
-path = "example/render_to_png.rs"
-
-[package.metadata.example.button_ui]
-name = "Render to Png"
-description = "Generete Png file with render"
-category = "2D Rendering"
 
 [[example]]
 name = "compute_shader"

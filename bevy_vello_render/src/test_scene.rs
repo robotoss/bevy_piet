@@ -1,5 +1,6 @@
-use piet_scene::kurbo::{Affine, BezPath, Ellipse, PathEl, Point, Rect};
-use piet_scene::*;
+use vello::kurbo::{Affine, BezPath, Ellipse, PathEl, Point, Rect};
+use vello::peniko::*;
+use vello::*;
 
 pub fn render_funky_paths(sb: &mut SceneBuilder) {
     use PathEl::*;

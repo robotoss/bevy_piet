@@ -1,1 +1,1 @@
-pub use bevy_piet_render as render;
+pub use bevy_vello_render as render;

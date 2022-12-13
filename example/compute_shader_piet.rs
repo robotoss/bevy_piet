@@ -14,7 +14,7 @@ use bevy::{
         RenderApp, RenderStage,
     },
 };
-use bevy_piet_render::{run_render, PietRenderResources};
+use bevy_vello_render::{run_render, PietRenderResources};
 use std::borrow::Cow;
 
 const SIZE: (u32, u32) = (1280, 720);
