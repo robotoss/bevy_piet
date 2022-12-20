@@ -5,20 +5,13 @@
 
 use bevy::{
     prelude::*,
-    render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
-        render_resource::*,
-        renderer::{RenderContext, RenderDevice, RenderQueue},
-        RenderApp, RenderStage,
-    },
+    render::{extract_component::ExtractComponentPlugin, render_resource::*},
 };
-use bevy_vello_render::{run_render, PietRenderResources};
-use std::borrow::Cow;
-
-const SIZE: (u32, u32) = (1280, 720);
-const WORKGROUP_SIZE: u32 = 8;
+use bevy_vello_render::{
+    kurbo::Rect,
+    screen::{VelloFragment, VelloScene, VelloTarget},
+    Affine, Fill, LinearGradient, Point, SceneBuilder, SceneFragment, Stroke, VelloRenderPlugin,
+};
 
 fn main() {
     App::new()
@@ -31,227 +24,133 @@ fn main() {
             },
             ..default()
         }))
-        .add_plugin(GameOfLifeComputePlugin)
+        .add_plugin(VelloRenderPlugin)
         .add_startup_system(setup)
+        .add_system(cube_rotator_system)
+        .add_plugin(ExtractComponentPlugin::<VelloScene>::default())
+        .add_system(render_fragment)
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: SIZE.0,
-            height: SIZE.1,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8Unorm,
-    );
-    image.texture_descriptor.usage =
-        TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-    let image = images.add(image);
+// Marks the main pass cube, to which the texture is applied.
+#[derive(Component)]
+struct MainPassCube;
 
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
-            ..default()
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let size = Extent3d {
+        width: 512,
+        height: 512,
+        ..default()
+    };
+
+    // This is the texture that will be rendered to.
+    let mut image = Image {
+        texture_descriptor: TextureDescriptor {
+            label: None,
+            size,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8Unorm,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::STORAGE_BINDING,
         },
-        texture: image.clone(),
+        ..default()
+    };
+
+    // fill image.data with zeroes
+    image.resize(size);
+
+    let image_handle = images.add(image);
+
+    // Light
+    // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
-    commands.spawn(Camera2dBundle::default());
 
-    commands.insert_resource(GameOfLifeImage(image));
-}
+    let cube_size = 4.0;
+    let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
 
-pub struct GameOfLifeComputePlugin;
-
-impl Plugin for GameOfLifeComputePlugin {
-    fn build(&self, app: &mut App) {
-        // Extract the game of life image resource from the main world into the render world
-        // for operation on by the compute shader and display on the sprite.
-        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<GameOfLifePipeline>()
-            .add_system_to_stage(RenderStage::Queue, queue_bind_group);
-
-        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph
-            .add_node_edge(
-                "game_of_life",
-                bevy::render::main_graph::node::CAMERA_DRIVER,
-            )
-            .unwrap();
-    }
-}
-
-#[derive(Resource, Clone, Deref, ExtractResource)]
-struct GameOfLifeImage(Handle<Image>);
-
-#[derive(Resource)]
-struct GameOfLifeImageBindGroup(BindGroup);
-
-fn queue_bind_group(
-    mut commands: Commands,
-    pipeline: Res<GameOfLifePipeline>,
-    gpu_images: Res<RenderAssets<Image>>,
-    game_of_life_image: Res<GameOfLifeImage>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
-    let view = &gpu_images[&game_of_life_image.0];
-    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: None,
-        layout: &pipeline.texture_bind_group_layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: BindingResource::TextureView(&view.texture_view),
-        }],
+    // This material has the texture that has been rendered.
+    let material_handle = materials.add(StandardMaterial {
+        base_color_texture: Some(image_handle.clone()),
+        reflectance: 0.02,
+        unlit: false,
+        ..default()
     });
 
-    run_render(
-        render_device.wgpu_device(),
-        &render_queue.0,
-        &view.texture_view,
-        SIZE.0,
-        SIZE.1,
+    // Main pass cube, with material containing the rendered first pass texture.
+    commands.spawn((
+        PbrBundle {
+            mesh: cube_handle,
+            material: material_handle,
+            transform: Transform::from_xyz(0.0, 0.0, 1.5)
+                .with_rotation(Quat::from_rotation_x(-std::f32::consts::PI / 5.0)),
+            ..default()
+        },
+        MainPassCube,
+    ));
+
+    // The main pass camera.
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+    commands.spawn((
+        VelloFragment(SceneFragment::default()),
+        VelloTarget(image_handle),
+    ));
+}
+
+fn render_fragment(mut fragment: Query<&mut VelloFragment>, mut frame: Local<usize>) {
+    let mut fragment = fragment.single_mut();
+    let mut builder = SceneBuilder::for_fragment(&mut fragment.0);
+    render_brush_transform(&mut builder, *frame);
+    *frame += 1;
+}
+
+fn render_brush_transform(sb: &mut SceneBuilder, i: usize) {
+    let th = (std::f64::consts::PI / 180.0) * (i as f64);
+    let linear = LinearGradient::new((0.0, 0.0), (0.0, 200.0)).stops([
+        bevy_vello_render::Color::RED,
+        bevy_vello_render::Color::GREEN,
+        bevy_vello_render::Color::BLUE,
+    ]);
+    sb.fill(
+        Fill::NonZero,
+        Affine::translate((106.0, 106.0)),
+        &linear,
+        Some(around_center(Affine::rotate(th), Point::new(150.0, 150.0))),
+        &Rect::from_origin_size(Point::default(), (300.0, 300.0)),
     );
-
-    commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
+    sb.stroke(
+        &Stroke::new(106.0),
+        Affine::IDENTITY,
+        &linear,
+        Some(around_center(
+            Affine::rotate(th + std::f64::consts::PI / 2.),
+            Point::new(203.0, 203.0),
+        )),
+        &Rect::from_origin_size(Point::new(53.0, 53.0), (406.0, 406.0)),
+    );
 }
 
-#[derive(Resource)]
-pub struct GameOfLifePipeline {
-    texture_bind_group_layout: BindGroupLayout,
-    init_pipeline: CachedComputePipelineId,
-    update_pipeline: CachedComputePipelineId,
+fn around_center(xform: Affine, center: Point) -> Affine {
+    Affine::translate(center.to_vec2()) * xform * Affine::translate(-center.to_vec2())
 }
 
-impl FromWorld for GameOfLifePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let texture_bind_group_layout =
-            world
-                .resource::<RenderDevice>()
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: None,
-                    entries: &[BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
-                            view_dimension: TextureViewDimension::D2,
-                        },
-                        count: None,
-                    }],
-                });
-        let shader = world
-            .resource::<AssetServer>()
-            .load("shaders/game_of_life.wgsl");
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
-        let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
-            shader: shader.clone(),
-            shader_defs: vec![],
-            entry_point: Cow::from("init"),
-        });
-        let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
-            shader,
-            shader_defs: vec![],
-            entry_point: Cow::from("update"),
-        });
-
-        GameOfLifePipeline {
-            texture_bind_group_layout,
-            init_pipeline,
-            update_pipeline,
-        }
-    }
-}
-
-enum GameOfLifeState {
-    Loading,
-    Init,
-    Update,
-}
-
-struct GameOfLifeNode {
-    state: GameOfLifeState,
-}
-
-impl Default for GameOfLifeNode {
-    fn default() -> Self {
-        Self {
-            state: GameOfLifeState::Loading,
-        }
-    }
-}
-
-impl render_graph::Node for GameOfLifeNode {
-    fn update(&mut self, world: &mut World) {
-        let pipeline = world.resource::<GameOfLifePipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-
-        // if the corresponding pipeline has loaded, transition to the next stage
-        match self.state {
-            GameOfLifeState::Loading => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
-                {
-                    self.state = GameOfLifeState::Init;
-                }
-            }
-            GameOfLifeState::Init => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
-                {
-                    self.state = GameOfLifeState::Update;
-                }
-            }
-            GameOfLifeState::Update => {}
-        }
-    }
-
-    fn run(
-        &self,
-        _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
-        let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<GameOfLifePipeline>();
-
-        let mut pass = render_context
-            .command_encoder
-            .begin_compute_pass(&ComputePassDescriptor::default());
-
-        pass.set_bind_group(0, texture_bind_group, &[]);
-
-        // select the pipeline based on the current state
-        match self.state {
-            GameOfLifeState::Loading => {}
-            GameOfLifeState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_pipeline(init_pipeline);
-                // pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
-            }
-            GameOfLifeState::Update => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_pipeline(update_pipeline);
-                // pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
-            }
-        }
-
-        Ok(())
+/// Rotates the outer cube (main pass)
+fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
+    for mut transform in &mut query {
+        transform.rotate_x(1.0 * time.delta_seconds());
+        // transform.rotate_y(0.7 * time.delta_seconds());
     }
 }

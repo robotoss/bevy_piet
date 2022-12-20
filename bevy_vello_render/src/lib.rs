@@ -1,51 +1,63 @@
 use bevy::{
-    prelude::{App, Plugin, Resource},
-    render::renderer::RenderDevice,
+    prelude::{App, FromWorld, Image, Plugin, Query, Res, ResMut, Resource, World},
+    render::{
+        render_asset::RenderAssets,
+        renderer::{RenderDevice, RenderQueue},
+        RenderApp, RenderStage,
+    },
 };
 
-use vello::{Renderer, Scene, SceneBuilder};
-use wgpu::{Device, Queue, TextureView};
-mod render;
-mod test_scene;
+use screen::VelloScene;
+use vello::Renderer;
+pub mod screen;
+
+pub use vello::kurbo::{Affine, BezPath, Ellipse, PathEl, Point, Rect};
+pub use vello::peniko::*;
+pub use vello::*;
 
 #[derive(Resource)]
-pub struct PietRenderResources {
-    pub render: Renderer,
-}
+struct VelloRenderer(Renderer);
 
-/// Contains the Bevy interface to the Piet renderer.
-#[derive(Default)]
-pub struct PietRenderPlugin;
-
-impl Plugin for PietRenderPlugin {
-    fn build(&self, app: &mut App) {
-        let mut render_app = App::empty();
-        let render_device = app.world.resource::<RenderDevice>().clone();
-
-        let render = Renderer::new(render_device.wgpu_device()).expect("Can't create new Renderer");
-
-        render_app.insert_resource(PietRenderResources { render });
+impl FromWorld for VelloRenderer {
+    fn from_world(world: &mut World) -> Self {
+        let device = world.get_resource::<RenderDevice>().unwrap();
+        VelloRenderer(Renderer::new(device.wgpu_device()).unwrap())
     }
 }
 
-pub fn run_render(
-    device: &Device,
-    queue: &Queue,
-    texture: &TextureView,
-    width: u32,
-    height: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut render = Renderer::new(device).expect("Can't create new Renderer");
+/// Contains the Bevy interface to the Vello renderer.
+#[derive(Default)]
+pub struct VelloRenderPlugin;
 
-    let mut scene = Scene::default();
+impl Plugin for VelloRenderPlugin {
+    fn build(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app.init_resource::<VelloRenderer>();
+        // This should probably use the render graph, but working out the dependencies there is awkward
+        render_app.add_system_to_stage(RenderStage::Render, render_scenes);
+    }
+}
 
-    let mut builder = SceneBuilder::for_scene(&mut scene);
-    test_scene::render_blend_grid(&mut builder);
-    builder.finish();
+fn render_scenes(
+    mut renderer: ResMut<VelloRenderer>,
+    mut scenes: Query<&VelloScene>,
+    gpu_images: Res<RenderAssets<Image>>,
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+) {
+    for scene in &mut scenes {
+        let gpu_image = gpu_images.get(&scene.1).unwrap();
 
-    render
-        .render_to_texture(device, queue, &scene, texture, width, height)
-        .expect("failed to render to texture");
-
-    Ok(())
+        renderer
+            .0
+            .render_to_texture(
+                device.wgpu_device(),
+                &*queue,
+                &scene.0,
+                &gpu_image.texture_view,
+                gpu_image.size.x as u32,
+                gpu_image.size.y as u32,
+            )
+            .unwrap();
+    }
 }
